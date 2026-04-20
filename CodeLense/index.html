@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CodeLens — JavaScript Quality Analyzer</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-logo">
+      <span class="logo-bracket">&lt;</span>CodeLens<span class="logo-bracket">/&gt;</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#analyzer">Analyzer</a></li>
+      <li><a href="#history">History</a></li>
+      <li><a href="#leaderboard">Leaderboard</a></li>
+      <li><a href="#docs">Docs</a></li>
+    </ul>
+    <button class="nav-cta" onclick="scrollToAnalyzer()">Start Analyzing</button>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-grid-bg"></div>
+    <div class="hero-content">
+      <div class="hero-badge">Powered by ML + LLM</div>
+      <h1 class="hero-title">
+        <span class="title-line">Analyze Your</span>
+        <span class="title-line accent">JavaScript Code</span>
+        <span class="title-line">Like Never Before</span>
+      </h1>
+      <p class="hero-sub">Hybrid static analysis · Machine learning smell detection · AI-powered refactoring suggestions</p>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num" id="totalAnalyses">0</span><span class="stat-label">Analyses Run</span></div>
+        <div class="stat"><span class="stat-num" id="issuesFound">0</span><span class="stat-label">Issues Found</span></div>
+        <div class="stat"><span class="stat-num" id="avgScore">0</span><span class="stat-label">Avg Quality Score</span></div>
+      </div>
+      <button class="btn-primary hero-btn" onclick="scrollToAnalyzer()">
+        <span>Analyze Code Now</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </div>
+    <div class="hero-visual">
+      <div class="code-preview">
+        <div class="code-header">
+          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+          <span class="code-filename">example.js</span>
+        </div>
+        <pre class="code-sample"><span class="c-kw">function</span> <span class="c-fn">calculateTotal</span>(<span class="c-param">items</span>) {
+  <span class="c-kw">let</span> total = <span class="c-num">0</span>;
+  <span class="c-kw">for</span>(<span class="c-kw">let</span> i = <span class="c-num">0</span>; i &lt; items.length; i++) {
+    <span class="c-kw">if</span>(items[i].price &gt; <span class="c-num">0</span>) {
+      <span class="c-kw">if</span>(items[i].qty) {
+        total += items[i].price * items[i].qty;
+      }
+    }
+  }
+  <span class="c-kw">return</span> total;
+}</pre>
+        <div class="code-badges">
+          <span class="badge warn">⚠ Complexity: 4</span>
+          <span class="badge err">✗ Deep Nesting</span>
+          <span class="badge ok">✓ Length OK</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES STRIP -->
+  <section class="features-strip">
+    <div class="feature-item">
+      <div class="feature-icon">🌳</div>
+      <div>
+        <h3>AST Parsing</h3>
+        <p>Deep structural analysis via Abstract Syntax Tree</p>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">📊</div>
+      <div>
+        <h3>Metric Engine</h3>
+        <p>Cyclomatic, cognitive complexity & maintainability index</p>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">🤖</div>
+      <div>
+        <h3>ML Classifier</h3>
+        <p>Random Forest trained on real GitHub repositories</p>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">💬</div>
+      <div>
+        <h3>AI Explanations</h3>
+        <p>Plain-language refactoring suggestions from LLM</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN ANALYZER -->
+  <section class="analyzer-section" id="analyzer">
+    <div class="section-header">
+      <h2>Code Analyzer</h2>
+      <p>Paste your JavaScript below or upload a file</p>
+    </div>
+
+    <div class="analyzer-layout">
+      <!-- LEFT: Input -->
+      <div class="analyzer-input-panel">
+        <div class="input-toolbar">
+          <div class="toolbar-left">
+            <button class="tb-btn active" id="tab-paste" onclick="switchTab('paste')">Paste Code</button>
+            <button class="tb-btn" id="tab-upload" onclick="switchTab('upload')">Upload File</button>
+          </div>
+          <div class="toolbar-right">
+            <button class="tb-btn small" onclick="loadSample('good')">Load Good Sample</button>
+            <button class="tb-btn small" onclick="loadSample('bad')">Load Bad Sample</button>
+            <button class="tb-btn small danger" onclick="clearCode()">Clear</button>
+          </div>
+        </div>
+
+        <div id="paste-tab">
+          <div class="editor-wrapper">
+            <div class="line-numbers" id="lineNumbers">1</div>
+            <textarea id="codeInput" class="code-editor" placeholder="// Paste your JavaScript code here..." spellcheck="false" oninput="updateLineNumbers()"></textarea>
+          </div>
+        </div>
+
+        <div id="upload-tab" style="display:none;">
+          <div class="upload-zone" id="uploadZone" ondrop="handleDrop(event)" ondragover="event.preventDefault()">
+            <div class="upload-icon">📁</div>
+            <p>Drag & drop a <strong>.js</strong> file here</p>
+            <p class="upload-sub">or</p>
+            <label class="btn-secondary upload-label">
+              Browse Files
+              <input type="file" id="fileInput" accept=".js,.mjs,.ts" onchange="handleFileUpload(event)" hidden>
+            </label>
+            <p class="upload-filename" id="uploadedFilename"></p>
+          </div>
+        </div>
+
+        <div class="analyze-options">
+          <div class="option-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="optAST" checked>
+              <span class="checkmark"></span>
+              AST Analysis
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="optML" checked>
+              <span class="checkmark"></span>
+              ML Classification
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="optLLM" checked>
+              <span class="checkmark"></span>
+              AI Suggestions
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="optDupes" checked>
+              <span class="checkmark"></span>
+              Duplication Check
+            </label>
+          </div>
+        </div>
+
+        <button class="btn-primary full-width analyze-btn" id="analyzeBtn" onclick="analyzeCode()">
+          <span id="analyzeBtnText">⚡ Analyze Code</span>
+          <div class="btn-loader" id="btnLoader" style="display:none;"></div>
+        </button>
+      </div>
+
+      <!-- RIGHT: Results -->
+      <div class="analyzer-results-panel" id="resultsPanel">
+        <div class="results-placeholder" id="resultsPlaceholder">
+          <div class="placeholder-icon">🔍</div>
+          <p>Results will appear here after analysis</p>
+        </div>
+
+        <div id="resultsContent" style="display:none;">
+          <!-- Score Card -->
+          <div class="score-card">
+            <div class="score-ring-wrapper">
+              <svg class="score-ring" viewBox="0 0 120 120">
+                <circle class="ring-bg" cx="60" cy="60" r="50"/>
+                <circle class="ring-fill" id="scoreRing" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"/>
+              </svg>
+              <div class="score-number" id="scoreNumber">0</div>
+            </div>
+            <div class="score-details">
+              <div class="score-grade" id="scoreGrade">—</div>
+              <div class="score-label">Maintainability Index</div>
+              <div class="score-smells" id="scoreSmells">— code smells detected</div>
+            </div>
+          </div>
+
+          <!-- Tabs -->
+          <div class="result-tabs">
+            <button class="rt-tab active" onclick="showResultTab('metrics')">Metrics</button>
+            <button class="rt-tab" onclick="showResultTab('ast')">AST</button>
+            <button class="rt-tab" onclick="showResultTab('issues')">Issues</button>
+            <button class="rt-tab" onclick="showResultTab('ai')">AI Suggestions</button>
+            <button class="rt-tab" onclick="showResultTab('ml')">ML Report</button>
+          </div>
+
+          <div id="tab-metrics" class="result-tab-content active">
+            <div class="metrics-grid" id="metricsGrid"></div>
+          </div>
+
+          <div id="tab-ast" class="result-tab-content">
+            <div class="ast-viewer" id="astViewer"></div>
+          </div>
+
+          <div id="tab-issues" class="result-tab-content">
+            <div id="issuesList"></div>
+          </div>
+
+          <div id="tab-ai" class="result-tab-content">
+            <div class="ai-response" id="aiResponse">
+              <div class="ai-loading" id="aiLoading">
+                <div class="ai-spinner"></div>
+                <p>Generating AI suggestions...</p>
+              </div>
+              <div id="aiContent"></div>
+            </div>
+          </div>
+
+          <div id="tab-ml" class="result-tab-content">
+            <div id="mlReport"></div>
+          </div>
+
+          <!-- Save Button -->
+          <div class="save-row">
+            <input type="text" id="analysisName" placeholder="Name this analysis..." class="name-input">
+            <button class="btn-secondary" onclick="saveAnalysis()">💾 Save</button>
+            <button class="btn-secondary" onclick="exportReport()">📥 Export JSON</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE SECTION -->
+  <section class="compare-section">
+    <div class="section-header">
+      <h2>Tool Comparison</h2>
+      <p>How CodeLens stacks up against industry tools</p>
+    </div>
+    <div class="compare-table-wrapper">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th class="highlight">CodeLens</th>
+            <th>ESLint</th>
+            <th>SonarQube</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>AST-based analysis</td><td class="highlight">✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>ML smell detection</td><td class="highlight">✅</td><td>❌</td><td>⚠️ Limited</td></tr>
+          <tr><td>LLM explanations</td><td class="highlight">✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Maintainability Index</td><td class="highlight">✅</td><td>❌</td><td>✅</td></tr>
+          <tr><td>Plain-language feedback</td><td class="highlight">✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Duplication detection</td><td class="highlight">✅</td><td>❌</td><td>✅</td></tr>
+          <tr><td>Free to use</td><td class="highlight">✅</td><td>✅</td><td>⚠️ Paid tiers</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="history-section" id="history">
+    <div class="section-header">
+      <h2>Analysis History</h2>
+      <p>Your saved code analyses</p>
+    </div>
+    <div class="history-toolbar">
+      <input type="text" class="search-input" id="historySearch" placeholder="🔍 Search analyses..." oninput="filterHistory()">
+      <select class="filter-select" id="gradeFilter" onchange="filterHistory()">
+        <option value="">All Grades</option>
+        <option value="A">Grade A</option>
+        <option value="B">Grade B</option>
+        <option value="C">Grade C</option>
+        <option value="D">Grade D</option>
+        <option value="F">Grade F</option>
+      </select>
+      <button class="btn-secondary small" onclick="clearHistory()">🗑 Clear All</button>
+    </div>
+    <div class="history-grid" id="historyGrid">
+      <div class="history-empty">
+        <p>No analyses saved yet. Run an analysis and save it!</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEADERBOARD -->
+  <section class="leaderboard-section" id="leaderboard">
+    <div class="section-header">
+      <h2>Quality Leaderboard</h2>
+      <p>Top-scoring analyses from the community</p>
+    </div>
+    <div class="leaderboard-table-wrapper">
+      <table class="leaderboard-table">
+        <thead>
+          <tr><th>#</th><th>Analysis</th><th>Score</th><th>Grade</th><th>Smells</th><th>Date</th></tr>
+        </thead>
+        <tbody id="leaderboardBody">
+          <tr><td colspan="6" style="text-align:center;padding:2rem;opacity:.5;">No entries yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- DOCS -->
+  <section class="docs-section" id="docs">
+    <div class="section-header">
+      <h2>How It Works</h2>
+      <p>The technical pipeline behind CodeLens</p>
+    </div>
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-num">01</div>
+        <div class="pipe-icon">📝</div>
+        <h3>Input</h3>
+        <p>Paste JS code or upload a .js file. The system accepts raw source or module code.</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-num">02</div>
+        <div class="pipe-icon">🌳</div>
+        <h3>AST Parsing</h3>
+        <p>Code is parsed into an Abstract Syntax Tree, exposing structural patterns invisible to linters.</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-num">03</div>
+        <div class="pipe-icon">📊</div>
+        <h3>Metric Computation</h3>
+        <p>Cyclomatic complexity, cognitive complexity, function length, duplication, and issue density are computed.</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-num">04</div>
+        <div class="pipe-icon">🤖</div>
+        <h3>ML Classification</h3>
+        <p>A Random Forest classifier trained on GitHub repositories detects code smells beyond rule-based tools.</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-num">05</div>
+        <div class="pipe-icon">💬</div>
+        <h3>LLM Explanation</h3>
+        <p>Structured AST + metrics feed an LLM that generates targeted, plain-language refactoring guidance.</p>
+      </div>
+    </div>
+
+    <div class="metrics-docs">
+      <h3>Metrics Explained</h3>
+      <div class="metrics-doc-grid">
+        <div class="metric-doc-card">
+          <h4>Cyclomatic Complexity</h4>
+          <p>Counts decision points in code (if/else, loops, switches). Higher = harder to test. Threshold: ≤10 per function.</p>
+          <div class="threshold-bar"><div class="bar-fill" style="width:30%;background:#4ade80;"></div></div>
+        </div>
+        <div class="metric-doc-card">
+          <h4>Cognitive Complexity</h4>
+          <p>Measures how hard code is to read. Penalizes nesting and complex control flow. Threshold: ≤15.</p>
+          <div class="threshold-bar"><div class="bar-fill" style="width:50%;background:#facc15;"></div></div>
+        </div>
+        <div class="metric-doc-card">
+          <h4>Function Length</h4>
+          <p>Lines of code per function. Long functions are harder to maintain and test. Threshold: ≤30 lines.</p>
+          <div class="threshold-bar"><div class="bar-fill" style="width:70%;background:#f97316;"></div></div>
+        </div>
+        <div class="metric-doc-card">
+          <h4>Maintainability Index</h4>
+          <p>Weighted composite: 0–100. A=80+, B=60–79, C=40–59, D=20–39, F=&lt;20. Higher is better.</p>
+          <div class="threshold-bar"><div class="bar-fill" style="width:80%;background:#60a5fa;"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEEDBACK SECTION -->
+  <section class="feedback-section">
+    <div class="section-header">
+      <h2>Share Your Feedback</h2>
+      <p>Help us improve — rate your analysis experience</p>
+    </div>
+    <div class="feedback-form-wrapper">
+      <form class="feedback-form" onsubmit="submitFeedback(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Your Name</label>
+            <input type="text" id="fbName" placeholder="e.g. Jane Smith" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Role</label>
+            <select id="fbRole" class="form-input">
+              <option value="">Select role...</option>
+              <option>Student</option>
+              <option>Junior Developer</option>
+              <option>Senior Developer</option>
+              <option>Researcher</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Overall Usefulness</label>
+          <div class="star-rating" id="starRating">
+            <span class="star" onclick="setRating(1)">★</span>
+            <span class="star" onclick="setRating(2)">★</span>
+            <span class="star" onclick="setRating(3)">★</span>
+            <span class="star" onclick="setRating(4)">★</span>
+            <span class="star" onclick="setRating(5)">★</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Were AI suggestions helpful?</label>
+            <div class="radio-group">
+              <label class="radio-label"><input type="radio" name="aiHelp" value="yes"> Yes</label>
+              <label class="radio-label"><input type="radio" name="aiHelp" value="somewhat"> Somewhat</label>
+              <label class="radio-label"><input type="radio" name="aiHelp" value="no"> No</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Would you use this regularly?</label>
+            <div class="radio-group">
+              <label class="radio-label"><input type="radio" name="useRegular" value="yes"> Yes</label>
+              <label class="radio-label"><input type="radio" name="useRegular" value="maybe"> Maybe</label>
+              <label class="radio-label"><input type="radio" name="useRegular" value="no"> No</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Comments</label>
+          <textarea id="fbComment" class="form-input form-textarea" placeholder="Tell us about your experience..."></textarea>
+        </div>
+        <button type="submit" class="btn-primary">Submit Feedback</button>
+        <div class="feedback-success" id="feedbackSuccess" style="display:none;">
+          ✅ Thank you for your feedback!
+        </div>
+      </form>
+
+      <div class="feedback-summary" id="feedbackSummary">
+        <h3>Community Feedback</h3>
+        <div class="fb-stat-grid" id="fbStats">
+          <div class="fb-stat"><span class="fb-num" id="fbTotal">0</span><span>Reviews</span></div>
+          <div class="fb-stat"><span class="fb-num" id="fbAvgRating">—</span><span>Avg Rating</span></div>
+          <div class="fb-stat"><span class="fb-num" id="fbAiHelpful">—</span><span>Found AI Helpful</span></div>
+        </div>
+        <div class="fb-comments-list" id="fbCommentsList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-brand">
+        <div class="nav-logo"><span class="logo-bracket">&lt;</span>CodeLens<span class="logo-bracket">/&gt;</span></div>
+        <p>Hybrid intelligent JavaScript code quality analysis combining static analysis, ML classification, and LLM-powered explanations.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Analyzer</h4>
+        <a href="#analyzer">Run Analysis</a>
+        <a href="#history">History</a>
+        <a href="#leaderboard">Leaderboard</a>
+      </div>
+      <div class="footer-links">
+        <h4>Resources</h4>
+        <a href="#docs">Documentation</a>
+        <a href="#feedback">Feedback</a>
+        <a href="#">GitHub</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 CodeLens — JavaScript Quality Analyzer. Built with ❤️ for better code.</p>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
